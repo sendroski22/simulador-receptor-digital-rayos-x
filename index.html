@@ -126,7 +126,7 @@
   .px[data-v="1"] { background: var(--g1); }
   .px[data-v="2"] { background: var(--g2); }
   .px[data-v="3"] { background: var(--g3); }
-  .grid.numbers .px { background: #fff !important; color: var(--text); }
+  .grid.numbers .px { color: var(--ink, #000); } /* el color del texto lo decide paintPixel() */
   .px.wrong { outline: 3px solid var(--error); }
   .px:focus-visible { outline: 3px solid var(--accent); }
 
@@ -406,12 +406,25 @@ function toWindow(wl) {
   };
 }
 
-function greyFor(v, wl) {
+// Nivel de gris en pantalla (0 = negro, 255 = blanco) de un valor con la ventana indicada
+function greyLevel(v, wl) {
   const w = toWindow(wl);
   const low = w.level - w.width / 2;
   const t = Math.min(1, Math.max(0, (v - low) / w.width));
-  const g = Math.round(255 * (1 - t));
+  return Math.round(255 * (1 - t));
+}
+
+function greyFor(v, wl) {
+  const g = greyLevel(v, wl);
   return `rgb(${g}, ${g}, ${g})`;
+}
+
+// Pinta un píxel. En las vistas de números y bits, el texto es negro sobre grises claros
+// y blanco sobre grises oscuros, según el gris que se ve en pantalla.
+function paintPixel(p, wl) {
+  const v = Number(p.dataset.v);
+  p.style.background = greyFor(v, wl);
+  p.style.setProperty("--ink", greyLevel(v, wl) >= 128 ? "#000" : "#fff");
 }
 
 function activeWindow() {
@@ -492,7 +505,7 @@ function buildGrid() {
     p.type = "button";
     p.dataset.i = i;
     p.dataset.v = s.values[i];
-    p.style.background = greyFor(s.values[i], activeWindow());
+    paintPixel(p, activeWindow());
     p.textContent = pixelText(s.values[i]);
     p.setAttribute("aria-label", `Fila ${Math.floor(i / N) + 1}, columna ${(i % N) + 1}, valor ${s.values[i]}`);
     p.addEventListener("click", onPixelClick);
@@ -506,7 +519,7 @@ function buildGrid() {
 function applyWindow() {
   const wl = activeWindow();
   gridEl.querySelectorAll(".px").forEach((p) => {
-    p.style.background = greyFor(Number(p.dataset.v), wl);
+    paintPixel(p, wl);
   });
   document.querySelectorAll(".swatch").forEach((sw) => {
     sw.style.background = greyFor(Number(sw.dataset.v), wl);
@@ -540,7 +553,7 @@ function onPixelClick(e) {
   s.values[i] = (s.values[i] + 1) % 4;
   s.clicks++;
   p.dataset.v = s.values[i];
-  p.style.background = greyFor(s.values[i], activeWindow());
+  paintPixel(p, activeWindow());
   p.textContent = pixelText(s.values[i]);
   p.setAttribute("aria-label", `Fila ${Math.floor(i / N) + 1}, columna ${(i % N) + 1}, valor ${s.values[i]}`);
   p.classList.remove("wrong");
