@@ -6,7 +6,7 @@ Web interactiva para entender cómo un receptor digital transforma los fotones d
 
 **CFGS Imagen para el diagnóstico y medicina nuclear** · Módulo 1346 - Fundamentos físicos y equipos
 
-🔗 **Acceso a la web:** `https://sendroski22.github.io/simulador-receptor-digital-rayos-x/`
+🔗 **Acceso a la web:** `https://sendroski22.github.io/<repositorio>/`
 
 ---
 
@@ -37,7 +37,7 @@ El receptor tiene **10 × 10 píxeles** y **2 bits por píxel**, es decir, 4 val
 1. **Ejercicios:** hay cuatro. En cada uno se da una tabla con el valor de cada píxel («Datos del receptor»). El alumnado la reproduce clic a clic en la matriz: cada clic suma 1 y, después del 3, el píxel vuelve a 0. Al completarla aparece una figura sencilla.
 2. **Comprobar:** marca en rojo los píxeles incorrectos. Si todo está bien, muestra el nombre de la figura y una breve explicación relacionada con la atenuación.
 3. **Vistas del receptor:** el botón «Ver números» alterna entre colores, números y bits. En la vista de bits también pasan a binario la tabla de datos y la leyenda.
-4. **Procesado de la imagen (ventaneo):** se desbloquea al comprobar la imagen. Los controles de **brillo** (nivel de ventana) y **contraste** (anchura de ventana) cambian cómo se ven los grises sin modificar los datos. Si se modifica un píxel, la imagen deja de estar comprobada y el procesado se desactiva. Al volver a comprobarla, se recuperan los ajustes que había.
+4. **Procesado de la imagen (ventaneo):** se desbloquea al comprobar la imagen. Un recuadro con un punto, como el arrastre de ratón de los visores DICOM, ajusta la **anchura de ventana (W)** en horizontal, relacionada con el contraste, y el **nivel de ventana (L)** en vertical, relacionado con el brillo. Cambia cómo se ven los grises sin modificar los datos. También funciona con las flechas del teclado. Si se modifica un píxel, la imagen deja de estar comprobada y el procesado se desactiva. Al volver a comprobarla, se recuperan los ajustes que había.
 5. **Apartados teóricos:** instrucciones; características de la imagen digital (resolución espacial y profundidad de bits); procesado de la imagen. Incluyen preguntas para el alumnado y una de ellas tiene respuesta desplegable.
 
 ### Modo profesor
@@ -79,7 +79,7 @@ Todo está al principio del bloque `<script>` de `index.html`:
 
 - **`EXERCISES`:** los cuatro ejercicios. Cada uno tiene un nombre (`name`), la explicación que aparece al resolverlo (`note`) y la matriz (`data`), escrita como 10 filas de 10 dígitos entre 0 y 3. Se pueden cambiar las figuras o añadir ejercicios nuevos; el tamaño de la matriz se calcula a partir del número de filas, así que todos los ejercicios deben tener el mismo tamaño y ser cuadrados.
 - **`SECRET_CLICKS`** y **`SECRET_WINDOW_MS`:** número de clics y tiempo máximo entre clics del modo profesor.
-- **`WL_DEFAULT`:** valores iniciales de brillo y contraste.
+- **`WL_DEFAULT`**, **`L_RANGE`** y **`W_RANGE`:** ventana inicial (L y W) y límites del recuadro de ventana, en la misma escala que los valores de los píxeles.
 
 ## Modelo y limitaciones
 

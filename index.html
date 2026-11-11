@@ -171,11 +171,29 @@
   .answer-btn { margin-top: 0.5rem; }
   .proc h3 { margin: 0 0 0.3rem; font-size: 0.95rem; }
   .proc p { margin: 0 0 0.6rem; font-size: 0.85rem; color: var(--muted); }
-  .slider { display: grid; grid-template-columns: 8.5rem 1fr 2.2rem; gap: 8px; align-items: center; margin-top: 6px; font-size: 0.9rem; }
-  .slider label { font-weight: 600; line-height: 1.2; }
-  .slider label small { display: block; font-weight: 400; color: var(--muted); font-size: 0.78rem; }
-  .slider input { width: 100%; accent-color: var(--accent); }
-  .slider output { font: 500 .9rem var(--mono); text-align: right; }
+  /* Control de ventana: recuadro con un punto (horizontal = W, vertical = L) */
+  .wl { display: flex; flex-wrap: wrap; gap: 14px 18px; align-items: flex-start; }
+  .wl-pad-wrap { display: grid; grid-template-columns: auto 160px; grid-template-rows: 160px auto; gap: 4px 6px; }
+  .wl-axis-l { align-self: center; font-size: 0.75rem; color: var(--muted); text-align: center; line-height: 1.3; }
+  .wl-axis-w { grid-column: 2; font-size: 0.75rem; color: var(--muted); text-align: center; }
+  .wl-pad {
+    position: relative; width: 160px; height: 160px;
+    background: var(--soft); border: 1px solid var(--border); border-radius: 8px;
+    cursor: crosshair; touch-action: none; user-select: none;
+    background-image: linear-gradient(var(--border), var(--border)), linear-gradient(var(--border), var(--border));
+    background-size: 1px 100%, 100% 1px; background-position: center, center; background-repeat: no-repeat;
+  }
+  .wl-pad:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .wl-dot {
+    position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px;
+    border-radius: 50%; background: var(--accent); border: 2px solid #fff;
+    box-shadow: 0 1px 4px rgba(18,32,43,.35); pointer-events: none;
+  }
+  .wl-values { display: grid; gap: 10px; min-width: 12rem; flex: 1; }
+  .wl-values .val { line-height: 1.25; }
+  .wl-values .val b { font-size: 0.9rem; }
+  .wl-values .val output { font: 500 1rem var(--mono); margin-left: 6px; }
+  .wl-values .val small { display: block; color: var(--muted); font-size: 0.78rem; }
   .proc .btn { margin-top: 10px; }
   .features .q { display: block; margin-top: 0.25rem; color: var(--accent); font-weight: 600; }
 </style>
@@ -245,17 +263,21 @@
         <div id="proc-controls" hidden>
         <p>Ya tienes la imagen primaria. Ajusta la ventana para cambiar cómo se muestran los valores.
            Los datos del receptor no cambian: solo cambia la imagen final que se visualiza.</p>
-        <div class="slider">
-          <label for="wl-b">Brillo <small>(nivel de ventana)</small></label>
-          <input type="range" id="wl-b" min="0" max="100" step="1">
-          <output id="wl-b-out" for="wl-b"></output>
+        <div class="wl">
+          <div class="wl-pad-wrap">
+            <div class="wl-axis-l">L<br>↕</div>
+            <div class="wl-pad" id="wl-pad" tabindex="0" role="application"
+                 aria-label="Control de ventana. Arrastra el punto: en horizontal cambia la anchura (W) y en vertical el nivel (L). También funciona con las flechas del teclado.">
+              <div class="wl-dot" id="wl-dot"></div>
+            </div>
+            <div class="wl-axis-w">W ↔</div>
+          </div>
+          <div class="wl-values" aria-live="polite">
+            <div class="val"><b>Nivel de ventana (L)</b><output id="wl-l-out"></output><small>Brillo</small></div>
+            <div class="val"><b>Anchura de ventana (W)</b><output id="wl-w-out"></output><small>Contraste (más anchura = menos contraste)</small></div>
+            <div><button class="btn" id="wl-reset" type="button">Restablecer</button></div>
+          </div>
         </div>
-        <div class="slider">
-          <label for="wl-c">Contraste <small>(anchura de ventana)</small></label>
-          <input type="range" id="wl-c" min="0" max="100" step="1">
-          <output id="wl-c-out" for="wl-c"></output>
-        </div>
-        <button class="btn" id="wl-reset" type="button">Restablecer</button>
         </div>
       </div>
     </section>
@@ -297,15 +319,19 @@
       <li><b>Imagen primaria e imagen final:</b> el receptor registra un valor numérico en cada píxel (imagen primaria).
         El procesado no cambia esos datos: solo cambia cómo se convierten en grises en la pantalla (imagen final).
         Por eso la tabla de datos no cambia aunque muevas los controles.</li>
-      <li><b>Brillo (nivel de ventana):</b> aclara u oscurece toda la imagen a la vez.</li>
-      <li><b>Contraste (anchura de ventana):</b> aumenta o reduce la diferencia de grises entre los distintos valores.
-        Con mucho contraste las diferencias se ven más, pero muchos píxeles pasan a verse totalmente blancos o negros y se pierde detalle.
-        Con poco contraste toda la imagen se vuelve gris.</li>
-      <li><b>En los equipos reales:</b> este ajuste se llama ventaneo o ajuste de ventana (en inglés, <i>window width</i> y <i>window level</i>, WW/WL).
-        En los visores de imagen médica suele hacerse arrastrando el ratón sobre la imagen o eligiendo ventanas predefinidas.
-        <span class="q">¿Qué tendrías que hacer con el brillo y el contraste para que solo destaque el hueso? ¿Qué les pasa entonces a las partes blandas?</span>
+      <li><b>La ventana:</b> es el intervalo de valores que se reparte entre el blanco y el negro de la pantalla.
+        Los valores que quedan por debajo de la ventana se ven blancos y los que quedan por encima, negros.</li>
+      <li><b>Nivel de ventana (L, de <i>level</i>), relacionado con el brillo:</b> es el centro de la ventana.
+        Al moverlo, la ventana se desplaza hacia valores más altos o más bajos y toda la imagen se aclara u oscurece.</li>
+      <li><b>Anchura de ventana (W, de <i>width</i>), relacionada con el contraste:</b> es cuántos valores caben en la ventana.
+        Una ventana estrecha da mucho contraste: las diferencias se ven más, pero muchos píxeles pasan a verse totalmente blancos o negros y se pierde detalle.
+        Una ventana ancha da poco contraste y la imagen se vuelve más gris.</li>
+      <li><b>En los equipos reales:</b> este ajuste se llama ventaneo (en inglés, <i>windowing</i>) y se indica con W y L.
+        En los visores de imagen médica suele hacerse arrastrando el ratón sobre la imagen: normalmente, en horizontal cambia la anchura y en vertical el nivel.
+        También se pueden elegir ventanas predefinidas. En este simulador se hace con el recuadro del punto.
+        <span class="q">¿Qué tendrías que hacer con la anchura (W) y el nivel (L) para que solo destaque el hueso? ¿Qué les pasa entonces a las partes blandas?</span>
         <button class="btn answer-btn" id="btn-answer" type="button">Ver respuesta</button>
-        <div class="answer" id="answer" hidden>Hay que <b>bajar el brillo</b> (en torno a 25) y <b>subir el contraste al máximo</b>.
+        <div class="answer" id="answer" hidden>Hay que <b>estrechar la ventana al mínimo</b> (W = 0,5) y <b>bajar el nivel</b> hasta L = 0,5, más o menos.
           Así solo los píxeles de valor 0 (hueso) se ven blancos. Las partes blandas pasan a verse negras, igual que el aire:
           ya no se distinguen y se pierde esa información en la imagen visualizada, aunque los datos siguen estando en el receptor.</div></li>
     </ol>
@@ -396,14 +422,20 @@ const N = EXERCISES[0].data.length;
   Valores por debajo de la ventana → blanco; por encima → negro; dentro → escala de grises.
   La ventana por defecto (nivel 1,5 y anchura 3) da los 4 grises originales.
 */
-const WL_DEFAULT = { b: 50, c: 50 }; // brillo y contraste (0-100)
+const WL_DEFAULT = { level: 1.5, width: 3 }; // nivel (L) y anchura (W), en la escala de los píxeles
+const L_RANGE = [-0.5, 3.5]; // eje vertical del recuadro (arriba = L alto = imagen más clara)
+const W_RANGE = [0.5, 5.5];  // eje horizontal del recuadro (derecha = ventana más ancha)
 
-// Brillo → nivel (centro) de la ventana; contraste → anchura (más contraste = ventana más estrecha)
 function toWindow(wl) {
-  return {
-    level: 1.5 + ((wl.b - 50) / 50) * 2,
-    width: 3 * Math.pow(2, (50 - wl.c) / 20),
-  };
+  return wl;
+}
+
+function clamp(x, [a, b]) {
+  return Math.min(b, Math.max(a, x));
+}
+
+function round1(x) {
+  return Math.round(x * 10) / 10;
 }
 
 // Nivel de gris en pantalla (0 = negro, 255 = blanco) de un valor con la ventana indicada
@@ -532,17 +564,34 @@ function updateProcPanel() {
   $("proc-controls").hidden = !s.solved;
   $("proc-info-locked").hidden = s.solved;
   $("proc-info-content").hidden = !s.solved;
-  $("wl-b").value = s.wl.b;
-  $("wl-c").value = s.wl.c;
-  $("wl-b-out").textContent = s.wl.b;
-  $("wl-c-out").textContent = s.wl.c;
+  const fx = (s.wl.width - W_RANGE[0]) / (W_RANGE[1] - W_RANGE[0]);
+  const fy = (L_RANGE[1] - s.wl.level) / (L_RANGE[1] - L_RANGE[0]);
+  $("wl-dot").style.left = `${fx * 100}%`;
+  $("wl-dot").style.top = `${fy * 100}%`;
+  $("wl-l-out").textContent = s.wl.level.toFixed(1).replace(".", ",");
+  $("wl-w-out").textContent = s.wl.width.toFixed(1).replace(".", ",");
   applyWindow();
 }
 
-function onWindowInput() {
+// Arrastrar el punto dentro del recuadro: horizontal = anchura (W), vertical = nivel (L)
+function setWindowFromPointer(e) {
+  const r = $("wl-pad").getBoundingClientRect();
+  const fx = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+  const fy = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
   const s = state[current];
-  s.wl.b = Number($("wl-b").value);
-  s.wl.c = Number($("wl-c").value);
+  s.wl.width = round1(W_RANGE[0] + fx * (W_RANGE[1] - W_RANGE[0]));
+  s.wl.level = round1(L_RANGE[1] - fy * (L_RANGE[1] - L_RANGE[0]));
+  updateProcPanel();
+}
+
+function onPadKey(e) {
+  const step = e.shiftKey ? 0.5 : 0.1;
+  const s = state[current];
+  const moves = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] };
+  if (!moves[e.key]) return;
+  e.preventDefault();
+  s.wl.width = round1(clamp(s.wl.width + moves[e.key][0], W_RANGE));
+  s.wl.level = round1(clamp(s.wl.level + moves[e.key][1], L_RANGE));
   updateProcPanel();
 }
 
@@ -558,7 +607,7 @@ function onPixelClick(e) {
   p.setAttribute("aria-label", `Fila ${Math.floor(i / N) + 1}, columna ${(i % N) + 1}, valor ${s.values[i]}`);
   p.classList.remove("wrong");
   if (s.solved) {
-    // La imagen deja de estar comprobada: se quita el procesado (se conservan brillo y contraste)
+    // La imagen deja de estar comprobada: se quita el procesado (se conservan W y L)
     s.solved = false;
     hideMessage();
     buildTabs();
@@ -579,7 +628,7 @@ function check() {
   if (wrong === 0) {
     s.solved = true;
     const ex = EXERCISES[current];
-    showMessage("ok", `¡Imagen revelada: ${ex.name}!`, [ex.note, "Ahora puedes procesar la imagen con los controles de brillo y contraste, debajo del receptor."]);
+    showMessage("ok", `¡Imagen revelada: ${ex.name}!`, [ex.note, "Ahora puedes procesar la imagen con el control de ventana (W y L), debajo del receptor."]);
     buildTabs();
     updateProcPanel();
   } else {
@@ -673,8 +722,15 @@ $("btn-numbers").addEventListener("click", () => {
 });
 gridEl.addEventListener("contextmenu", (e) => e.preventDefault());
 
-$("wl-b").addEventListener("input", onWindowInput);
-$("wl-c").addEventListener("input", onWindowInput);
+const pad = $("wl-pad");
+pad.addEventListener("pointerdown", (e) => {
+  pad.setPointerCapture(e.pointerId);
+  setWindowFromPointer(e);
+});
+pad.addEventListener("pointermove", (e) => {
+  if (pad.hasPointerCapture(e.pointerId)) setWindowFromPointer(e);
+});
+pad.addEventListener("keydown", onPadKey);
 $("wl-reset").addEventListener("click", () => {
   state[current].wl = { ...WL_DEFAULT };
   updateProcPanel();
