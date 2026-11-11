@@ -6,7 +6,7 @@ Web interactiva para entender cómo un receptor digital transforma los fotones d
 
 **CFGS Imagen para el diagnóstico y medicina nuclear** · Módulo 1346 - Fundamentos físicos y equipos
 
-🔗 **Acceso a la web:** `https://sendroski22.github.io/<repositorio>/`
+🔗 **Acceso a la web:** `https://sendroski22.github.io/simulador-receptor-digital-rayos-x/`
 
 ---
 
