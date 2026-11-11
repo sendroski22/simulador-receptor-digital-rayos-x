@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Simulador de un receptor digital de rayos X</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #EDF2F5;
+    --panel: #ffffff;
+    --text: #12202B;
+    --muted: #566774;
+    --accent: #2A6FDB;
+    --error: #D12F5A;
+    --border: #D3DDE4;
+    --soft: #F3F7F9;
+    --g0: #ffffff;
+    --g1: #aaaaaa;
+    --g2: #555555;
+    --g3: #000000;
+    --mono: "JetBrains Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 15px/1.5 "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 22px 16px 28px; }
+
+  /* Cabecera */
+  header { margin-bottom: 8px; }
+  header h1 {
+    font-size: clamp(1.3rem, 2.6vw, 1.9rem);
+    line-height: 1.2; margin: 0 0 4px; letter-spacing: -.01em;
+  }
+  .subhead {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+    margin: 0 0 10px;
+  }
+  .subtitle { color: var(--muted); font-weight: 600; }
+  header p.intro { margin: 0; color: var(--muted); max-width: 75ch; }
+
+  /* Ventana de relación curricular */
+  dialog {
+    border: 1px solid var(--border); border-radius: 12px;
+    padding: 18px 20px; max-width: min(620px, 92vw);
+    color: var(--text);
+    box-shadow: 0 12px 40px rgba(18,32,43,.25);
+  }
+  dialog::backdrop { background: rgba(18,32,43,.45); }
+  dialog h2 { margin: 0 0 12px; font-size: 1.15rem; }
+  dialog dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 8px 14px; }
+  dialog dt { font-weight: 700; color: var(--muted); }
+  dialog dd { margin: 0; }
+  dialog ul { margin: 0; padding-left: 0; list-style: none; }
+  dialog li + li { margin-top: 6px; }
+  dialog .close-row { text-align: right; margin-top: 16px; }
+  @media (max-width: 560px) { dialog dl { grid-template-columns: 1fr; gap: 2px; } dialog dd { margin-bottom: 8px; } }
+
+  .tabs {
+    display: flex; flex-wrap: wrap; gap: 0.5rem;
+    justify-content: center; margin: 1.1rem 0 1rem;
+  }
+  .tab {
+    border: 1px solid var(--border);
+    background: var(--panel);
+    padding: 0.45rem 1rem;
+    border-radius: 999px;
+    cursor: pointer;
+    font: 600 .9rem "Instrument Sans", system-ui, sans-serif;
+    color: var(--text);
+  }
+  .tab[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .tab .done { margin-left: 0.3rem; }
+
+  .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 720px) { .layout { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem;
+  }
+  .panel h2 { margin: 0 0 0.7rem; font-size: 1rem; }
+
+  /* Tabla de datos */
+  table.data { border-collapse: collapse; margin: 0 auto; }
+  table.data td {
+    width: 2.1rem; height: 2.1rem;
+    text-align: center;
+    border: 1px solid var(--border);
+    font: 500 .95rem var(--mono);
+  }
+
+  /* Receptor */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 2px;
+    width: min(100%, 25rem);
+    aspect-ratio: 1;
+    margin: 0 auto;
+    background: #7a7f88;
+    padding: 2px;
+    border-radius: 4px;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+  .px {
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font: 500 .95rem var(--mono);
+    color: transparent;
+    outline-offset: -3px;
+  }
+  .px[data-v="0"] { background: var(--g0); }
+  .px[data-v="1"] { background: var(--g1); }
+  .px[data-v="2"] { background: var(--g2); }
+  .px[data-v="3"] { background: var(--g3); }
+  .grid.numbers .px { background: #fff !important; color: var(--text); }
+  .px.wrong { outline: 3px solid var(--error); }
+  .px:focus-visible { outline: 3px solid var(--accent); }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; margin-top: 0.9rem; }
+  .btn {
+    padding: 6px 14px; border-radius: 8px;
+    border: 1px solid var(--border); background: #fff; color: var(--text);
+    font: 600 .9rem "Instrument Sans", system-ui, sans-serif; cursor: pointer;
+  }
+  .btn:hover { background: #F6F9FB; }
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { filter: brightness(1.06); }
+
+
+  .message { margin-top: 1rem; padding: 0.8rem 1rem; border-radius: 10px; display: none; }
+  .message.show { display: block; }
+  .message.ok { background: #E6F4EF; border: 1px solid #B5DDCF; }
+  .message.ko { background: #FBEAF0; border: 1px solid #F0BFD0; }
+  .message h3 { margin: 0 0 0.3rem; font-size: 1.05rem; }
+  .message p { margin: 0.2rem 0; }
+
+  .legend { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-top: 1rem; }
+  @media (max-width: 720px) { .legend { grid-template-columns: repeat(2, 1fr); } }
+  .legend div { display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; }
+  .legend b { font-family: var(--mono); font-weight: 500; }
+  .swatch { width: 1.6rem; height: 1.6rem; flex: none; border: 1px solid #888; border-radius: 3px; }
+
+  .extra { margin-top: 1rem; font-size: 0.95rem; }
+  .extra h2 { font-size: 1rem; margin: 0 0 0.4rem; }
+  .instructions { color: var(--muted); }
+  .instructions ol { margin: 0.3rem 0 0; padding-left: 1.2rem; }
+  .features ol { margin: 0.3rem 0 0; padding-left: 1.2rem; }
+  .features li + li { margin-top: 0.6rem; }
+  footer { margin-top: 22px; padding-top: 12px; border-top: 1px solid var(--border); font-size: .85rem; color: var(--muted); text-align: center; }
+  footer a { color: #2A5FC4; font-weight: 600; }
+  /* Procesado de la imagen (ventana) */
+  .proc { margin-top: 1rem; padding-top: 0.9rem; border-top: 1px solid var(--border); }
+  [hidden] { display: none !important; }
+  .locked { background: var(--soft); border: 1px dashed var(--border); border-radius: 8px; padding: 8px 10px; color: var(--muted); }
+  .answer { margin-top: 0.5rem; padding: 8px 10px; background: var(--soft); border-radius: 8px; }
+  .answer-btn { margin-top: 0.5rem; }
+  .proc h3 { margin: 0 0 0.3rem; font-size: 0.95rem; }
+  .proc p { margin: 0 0 0.6rem; font-size: 0.85rem; color: var(--muted); }
+  .slider { display: grid; grid-template-columns: 8.5rem 1fr 2.2rem; gap: 8px; align-items: center; margin-top: 6px; font-size: 0.9rem; }
+  .slider label { font-weight: 600; line-height: 1.2; }
+  .slider label small { display: block; font-weight: 400; color: var(--muted); font-size: 0.78rem; }
+  .slider input { width: 100%; accent-color: var(--accent); }
+  .slider output { font: 500 .9rem var(--mono); text-align: right; }
+  .proc .btn { margin-top: 10px; }
+  .features .q { display: block; margin-top: 0.25rem; color: var(--accent); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Simulador de un receptor digital de rayos X</h1>
+  <div class="subhead">
+    <span class="subtitle">CFGS Imagen para el diagnóstico y medicina nuclear</span>
+    <button class="btn" id="btn-curr" type="button">Ver relación curricular</button>
+  </div>
+  <p class="intro">Vamos a simular la llegada de fotones de rayos X a un receptor digital y cómo estos se transforman en información y una imagen visible.<br>
+    Cada clic sobre un píxel representa más radiación que llega al receptor: el píxel registra un valor más alto, que en pantalla se ve más oscuro.
+    Reproduce los datos de cada ejercicio y descubre qué imagen se forma.</p>
+</header>
+
+<dialog id="dlg-curr" aria-labelledby="dlg-curr-title">
+  <h2 id="dlg-curr-title">Relación curricular</h2>
+  <dl>
+    <dt>Ciclo</dt>
+    <dd>CFGS Imagen para el diagnóstico y medicina nuclear</dd>
+    <dt>Módulo</dt>
+    <dd>1346 - Fundamentos físicos y equipos</dd>
+    <dt>Resultado de aprendizaje</dt>
+    <dd>RA3. Procesa y trata imágenes radiográficas, describiendo las características de los receptores y sus aplicaciones.</dd>
+    <dt>Criterio(s) de evaluación</dt>
+    <dd>
+      <ul>
+        <li>3.e) Se ha descrito el procedimiento de captura de imagen en formato digital directo o indirecto.</li>
+        <li>3.f) Se ha procesado la imagen primaria digital para obtener una imagen final de calidad.</li>
+      </ul>
+    </dd>
+  </dl>
+  <div class="close-row"><button class="btn" id="btn-curr-close" type="button">Cerrar</button></div>
+</dialog>
+
+<main>
+  <nav class="tabs" role="tablist" id="tabs"></nav>
+
+  <div class="layout">
+    <section class="panel">
+      <h2 id="data-title">Datos del receptor</h2>
+      <table class="data" id="data-table" aria-label="Valores de cada píxel"></table>
+      <div class="legend" aria-label="Leyenda de valores">
+        <div><span class="swatch" data-v="0" style="background:var(--g0)"></span><span><b class="lv" data-v="0">0</b> · casi no llega radiación</span></div>
+        <div><span class="swatch" data-v="1" style="background:var(--g1)"></span><span><b class="lv" data-v="1">1</b> · llega poca</span></div>
+        <div><span class="swatch" data-v="2" style="background:var(--g2)"></span><span><b class="lv" data-v="2">2</b> · llega bastante</span></div>
+        <div><span class="swatch" data-v="3" style="background:var(--g3)"></span><span><b class="lv" data-v="3">3</b> · llega mucha</span></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Receptor</h2>
+      <div class="grid" id="grid" role="grid" aria-label="Matriz de 10 por 10 píxeles"></div>
+      <div class="controls">
+        <button class="btn" id="btn-numbers" type="button">Ver números</button>
+        <button class="btn primary" id="btn-check" type="button">Comprobar</button>
+        <button class="btn" id="btn-reset" type="button">Reiniciar</button>
+        <button class="btn" id="btn-restore" type="button" hidden>Volver a estado anterior</button>
+      </div>
+
+      <div class="proc" id="proc">
+        <h3>Procesado de la imagen (ventaneo)</h3>
+        <p class="locked" id="proc-locked">Antes de procesar la imagen, debes introducir los valores correctos de cada píxel y comprobar la imagen.</p>
+        <div id="proc-controls" hidden>
+        <p>Ya tienes la imagen primaria. Ajusta la ventana para cambiar cómo se muestran los valores.
+           Los datos del receptor no cambian: solo cambia la imagen final que se visualiza.</p>
+        <div class="slider">
+          <label for="wl-b">Brillo <small>(nivel de ventana)</small></label>
+          <input type="range" id="wl-b" min="0" max="100" step="1">
+          <output id="wl-b-out" for="wl-b"></output>
+        </div>
+        <div class="slider">
+          <label for="wl-c">Contraste <small>(anchura de ventana)</small></label>
+          <input type="range" id="wl-c" min="0" max="100" step="1">
+          <output id="wl-c-out" for="wl-c"></output>
+        </div>
+        <button class="btn" id="wl-reset" type="button">Restablecer</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="message" id="message" role="status" aria-live="polite"></div>
+
+  <section class="panel extra instructions">
+    <h2>Instrucciones</h2>
+    <ol>
+      <li>Todos los píxeles del receptor empiezan en 0 (blanco: no ha llegado radiación).</li>
+      <li>Cada clic suma 1 al valor del píxel. Un clic no es un solo fotón: representa una cantidad de radiación formada por muchísimos fotones.</li>
+      <li>Después del 3, el píxel vuelve a 0. En un receptor real el píxel no vuelve a 0: se satura y se queda en el valor máximo. Aquí vuelve a 0 solo para que puedas corregir errores.</li>
+      <li>Haz que cada píxel tenga el valor que indica la tabla de datos.</li>
+      <li>El botón «Ver números» va cambiando la vista: números → bits (binario) → colores. Usa «Comprobar» para corregir.</li>
+      <li>Una vez acabada la recepción de fotones y comprobado el resultado, podrás procesar la imagen a través del ventaneo (<i>windowing</i>).</li>
+    </ol>
+  </section>
+
+  <section class="panel extra features">
+    <h2>Características de la imagen digital</h2>
+    <ol>
+      <li><b>Resolución o resolución espacial:</b> se relaciona con el tamaño de la matriz, es decir, con el número de columnas y filas de píxeles.
+        Cuantos más píxeles hay en un receptor del mismo tamaño, más pequeños son y más detalle se puede ver.
+        Actualmente los equipos de radiología digital trabajan con matrices de 1024x1024 píxeles, 2048x2048 píxeles o incluso más.
+        <span class="q">¿Sabrías decir cuántos píxeles tiene esta matriz?</span></li>
+      <li><b>Intensidad o densidad (profundidad de bits):</b> es el número de valores distintos que puede tomar cada píxel.
+        Cada píxel está definido por un número de bits en notación binaria, donde cada bit puede tomar el valor 0 o 1.
+        Los sistemas actuales trabajan con entre 12 y 16 bits por píxel (por ejemplo, con 14 bits: 2<sup>14</sup> = 16.384 valores).
+        Cuanto mayor es el rango de valores, mayor es el rango de grises de la escala.
+        <span class="q">¿Cuántos bits tiene el receptor de este simulador? ¿Cuántos valores distintos puede tener cada píxel?</span></li>
+    </ol>
+  </section>
+
+  <section class="panel extra features" id="proc-info">
+    <h2>Procesado de la imagen</h2>
+    <p class="locked" id="proc-info-locked">Antes de procesar la imagen, debes introducir los valores correctos de cada píxel y comprobar la imagen.</p>
+    <ol id="proc-info-content" hidden>
+      <li><b>Imagen primaria e imagen final:</b> el receptor registra un valor numérico en cada píxel (imagen primaria).
+        El procesado no cambia esos datos: solo cambia cómo se convierten en grises en la pantalla (imagen final).
+        Por eso la tabla de datos no cambia aunque muevas los controles.</li>
+      <li><b>Brillo (nivel de ventana):</b> aclara u oscurece toda la imagen a la vez.</li>
+      <li><b>Contraste (anchura de ventana):</b> aumenta o reduce la diferencia de grises entre los distintos valores.
+        Con mucho contraste las diferencias se ven más, pero muchos píxeles pasan a verse totalmente blancos o negros y se pierde detalle.
+        Con poco contraste toda la imagen se vuelve gris.</li>
+      <li><b>En los equipos reales:</b> este ajuste se llama ventaneo o ajuste de ventana (en inglés, <i>window width</i> y <i>window level</i>, WW/WL).
+        En los visores de imagen médica suele hacerse arrastrando el ratón sobre la imagen o eligiendo ventanas predefinidas.
+        <span class="q">¿Qué tendrías que hacer con el brillo y el contraste para que solo destaque el hueso? ¿Qué les pasa entonces a las partes blandas?</span>
+        <button class="btn answer-btn" id="btn-answer" type="button">Ver respuesta</button>
+        <div class="answer" id="answer" hidden>Hay que <b>bajar el brillo</b> (en torno a 25) y <b>subir el contraste al máximo</b>.
+          Así solo los píxeles de valor 0 (hueso) se ven blancos. Las partes blandas pasan a verse negras, igual que el aire:
+          ya no se distinguen y se pierde esa información en la imagen visualizada, aunque los datos siguen estando en el receptor.</div></li>
+    </ol>
+  </section>
+</main>
+
+<footer>“Web interactiva Simulador de un receptor digital de rayos X” por Pablo A. Sendra Lleó (2026), disponible bajo licencia <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.es" target="_blank" rel="noopener noreferrer license">CC BY-NC-SA 4.0</a>.<br>Este material fue desarrollado con la asistencia del modelo de inteligencia artificial <a href="https://claude.ai" target="_blank" rel="noopener noreferrer">Claude (Anthropic)</a>.</footer>
+
+</div>
+
+<script>
+/*
+  Convención: el valor indica cuánta radiación llega al receptor.
+  0 = blanco (hueso/objeto muy denso: casi no llegan fotones)
+  3 = negro (aire, radiación directa).
+*/
+const EXERCISES = [
+  {
+    name: "Cráneo",
+    note: "El hueso del cráneo atenúa mucho el haz y queda blanco. A su alrededor se ve el cuero cabelludo (partes blandas, gris claro). Las órbitas y la cavidad nasal salen más oscuras porque el haz las atraviesa con más facilidad.",
+    data: [
+      "3321111233",
+      "3210000123",
+      "2100000012",
+      "1000000001",
+      "1022002201",
+      "1022002201",
+      "2100220012",
+      "3100220013",
+      "3210000123",
+      "3321111233",
+    ],
+  },
+  {
+    name: "Mano",
+    note: "Los huesos (blanco) están envueltos en partes blandas (gris claro), que atenúan menos. Entre los dedos y alrededor de la mano solo hay aire: llega la radiación directa y el receptor registra el valor máximo (negro).",
+    data: [
+      "3331313333",
+      "3130303133",
+      "3030303033",
+      "3030303033",
+      "2010101013",
+      "2010101010",
+      "2100000001",
+      "3210000013",
+      "3321001233",
+      "3321001233",
+    ],
+  },
+  {
+    name: "Pie (proyección lateral)",
+    note: "Los huesos (blanco) están rodeados de partes blandas (gris claro). La franja gris entre la pierna y el pie representa el espacio articular del tobillo, que atenúa menos que el hueso.",
+    data: [
+      "3100133333",
+      "3100133333",
+      "3100133333",
+      "3100133333",
+      "3100133333",
+      "3111133333",
+      "3100011333",
+      "1000000113",
+      "1000000001",
+      "2111111111",
+    ],
+  },
+  {
+    name: "Taza de té ☕",
+    note: "Donde el haz atraviesa más cerámica (bordes y asa) queda blanco. En el centro, donde hay sobre todo té, queda gris. El vapor es licencia artística: en una radiografía real no se vería.",
+    data: [
+      "3313313333",
+      "3133133333",
+      "3313313333",
+      "3000000333",
+      "3022220003",
+      "3011110303",
+      "3011110003",
+      "3301103333",
+      "3300003333",
+      "1111111133",
+    ],
+  },
+];
+
+const N = EXERCISES[0].data.length;
+
+/*
+  Ventana (procesado): convierte cada valor en un gris de pantalla.
+  Valores por debajo de la ventana → blanco; por encima → negro; dentro → escala de grises.
+  La ventana por defecto (nivel 1,5 y anchura 3) da los 4 grises originales.
+*/
+const WL_DEFAULT = { b: 50, c: 50 }; // brillo y contraste (0-100)
+
+// Brillo → nivel (centro) de la ventana; contraste → anchura (más contraste = ventana más estrecha)
+function toWindow(wl) {
+  return {
+    level: 1.5 + ((wl.b - 50) / 50) * 2,
+    width: 3 * Math.pow(2, (50 - wl.c) / 20),
+  };
+}
+
+function greyFor(v, wl) {
+  const w = toWindow(wl);
+  const low = w.level - w.width / 2;
+  const t = Math.min(1, Math.max(0, (v - low) / w.width));
+  const g = Math.round(255 * (1 - t));
+  return `rgb(${g}, ${g}, ${g})`;
+}
+
+function activeWindow() {
+  const s = state[current];
+  return s.solved ? s.wl : WL_DEFAULT;
+}
+const state = EXERCISES.map(() => ({
+  values: Array(N * N).fill(0),
+  clicks: 0,
+  solved: false,
+  backup: null, // estado anterior guardado al mostrar la solución (modo profesor)
+  wl: { ...WL_DEFAULT }, // ventana de visualización (nivel y anchura)
+}));
+let current = 0;
+// Modos de visualización del receptor: colores → números → bits → colores
+const VIEWS = ["colores", "numeros", "bits"];
+const VIEW_BUTTON = { colores: "Ver números", numeros: "Ver bits", bits: "Ver colores" };
+let view = "colores";
+
+// En modo «bits» se muestran en binario la matriz, la tabla de datos y la leyenda
+function pixelText(v) {
+  return view === "bits" ? v.toString(2).padStart(2, "0") : String(v);
+}
+
+function updateLegend() {
+  document.querySelectorAll(".lv").forEach((el) => {
+    el.textContent = pixelText(Number(el.dataset.v));
+  });
+}
+
+const $ = (id) => document.getElementById(id);
+const tabsEl = $("tabs");
+const gridEl = $("grid");
+const tableEl = $("data-table");
+const msgEl = $("message");
+
+function target(ex) {
+  return EXERCISES[ex].data.join("").split("").map(Number);
+}
+
+function buildTabs() {
+  tabsEl.innerHTML = "";
+  EXERCISES.forEach((_, i) => {
+    const b = document.createElement("button");
+    b.className = "tab";
+    b.type = "button";
+    b.setAttribute("role", "tab");
+    b.setAttribute("aria-selected", i === current ? "true" : "false");
+    b.innerHTML = `Ejercicio ${i + 1}` + (state[i].solved ? '<span class="done">✓</span>' : "");
+    b.addEventListener("click", () => selectExercise(i));
+    tabsEl.appendChild(b);
+  });
+}
+
+function buildTable() {
+  const t = target(current);
+  tableEl.innerHTML = "";
+  for (let r = 0; r < N; r++) {
+    const tr = document.createElement("tr");
+    for (let c = 0; c < N; c++) {
+      const td = document.createElement("td");
+      td.textContent = pixelText(t[r * N + c]);
+      tr.appendChild(td);
+    }
+    tableEl.appendChild(tr);
+  }
+  $("data-title").textContent = `Datos del receptor · Ejercicio ${current + 1}`;
+}
+
+function buildGrid() {
+  gridEl.innerHTML = "";
+  gridEl.style.gridTemplateColumns = `repeat(${N}, 1fr)`;
+  gridEl.setAttribute("aria-label", `Matriz de ${N} por ${N} píxeles`);
+  const s = state[current];
+  for (let i = 0; i < N * N; i++) {
+    const p = document.createElement("button");
+    p.className = "px";
+    p.type = "button";
+    p.dataset.i = i;
+    p.dataset.v = s.values[i];
+    p.style.background = greyFor(s.values[i], activeWindow());
+    p.textContent = pixelText(s.values[i]);
+    p.setAttribute("aria-label", `Fila ${Math.floor(i / N) + 1}, columna ${(i % N) + 1}, valor ${s.values[i]}`);
+    p.addEventListener("click", onPixelClick);
+    gridEl.appendChild(p);
+  }
+  gridEl.classList.toggle("numbers", view !== "colores");
+  updateRestoreButton();
+  updateProcPanel();
+}
+
+function applyWindow() {
+  const wl = activeWindow();
+  gridEl.querySelectorAll(".px").forEach((p) => {
+    p.style.background = greyFor(Number(p.dataset.v), wl);
+  });
+  document.querySelectorAll(".swatch").forEach((sw) => {
+    sw.style.background = greyFor(Number(sw.dataset.v), wl);
+  });
+}
+
+function updateProcPanel() {
+  const s = state[current];
+  $("proc-locked").hidden = s.solved;
+  $("proc-controls").hidden = !s.solved;
+  $("proc-info-locked").hidden = s.solved;
+  $("proc-info-content").hidden = !s.solved;
+  $("wl-b").value = s.wl.b;
+  $("wl-c").value = s.wl.c;
+  $("wl-b-out").textContent = s.wl.b;
+  $("wl-c-out").textContent = s.wl.c;
+  applyWindow();
+}
+
+function onWindowInput() {
+  const s = state[current];
+  s.wl.b = Number($("wl-b").value);
+  s.wl.c = Number($("wl-c").value);
+  updateProcPanel();
+}
+
+function onPixelClick(e) {
+  const p = e.currentTarget;
+  const i = Number(p.dataset.i);
+  const s = state[current];
+  s.values[i] = (s.values[i] + 1) % 4;
+  s.clicks++;
+  p.dataset.v = s.values[i];
+  p.style.background = greyFor(s.values[i], activeWindow());
+  p.textContent = pixelText(s.values[i]);
+  p.setAttribute("aria-label", `Fila ${Math.floor(i / N) + 1}, columna ${(i % N) + 1}, valor ${s.values[i]}`);
+  p.classList.remove("wrong");
+  if (s.solved) {
+    // La imagen deja de estar comprobada: se quita el procesado (se conservan brillo y contraste)
+    s.solved = false;
+    hideMessage();
+    buildTabs();
+    updateProcPanel();
+  }
+}
+
+function check() {
+  const t = target(current);
+  const s = state[current];
+  let wrong = 0;
+  gridEl.querySelectorAll(".px").forEach((p, i) => {
+    const bad = s.values[i] !== t[i];
+    p.classList.toggle("wrong", bad);
+    if (bad) wrong++;
+  });
+
+  if (wrong === 0) {
+    s.solved = true;
+    const ex = EXERCISES[current];
+    showMessage("ok", `¡Imagen revelada: ${ex.name}!`, [ex.note, "Ahora puedes procesar la imagen con los controles de brillo y contraste, debajo del receptor."]);
+    buildTabs();
+    updateProcPanel();
+  } else {
+    showMessage("ko", "Todavía no", [
+      `Hay ${wrong} ${wrong === 1 ? "píxel incorrecto" : "píxeles incorrectos"} (marcados en rojo).`,
+    ]);
+  }
+}
+
+function showMessage(type, title, lines) {
+  msgEl.className = `message show ${type}`;
+  msgEl.innerHTML = `<h3>${title}</h3>` + lines.map((l) => `<p>${l}</p>`).join("");
+}
+
+function hideMessage() {
+  msgEl.className = "message";
+  msgEl.innerHTML = "";
+}
+
+/* ---- Modo profesor: 5 clics seguidos en «Comprobar» muestran la solución ---- */
+const SECRET_CLICKS = 5;
+const SECRET_WINDOW_MS = 1000; // tiempo máximo entre un clic y el siguiente
+let secretCount = 0;
+let secretLast = 0;
+
+function onCheckClick() {
+  const now = Date.now();
+  secretCount = (now - secretLast <= SECRET_WINDOW_MS) ? secretCount + 1 : 1;
+  secretLast = now;
+  if (secretCount >= SECRET_CLICKS) {
+    secretCount = 0;
+    showSolution();
+  } else {
+    check();
+  }
+}
+
+function showSolution() {
+  const s = state[current];
+  s.backup = { values: s.values.slice(), clicks: s.clicks, solved: s.solved };
+  s.values = target(current);
+  hideMessage();
+  buildGrid();
+}
+
+function restorePrevious() {
+  const s = state[current];
+  if (!s.backup) return;
+  s.values = s.backup.values;
+  s.clicks = s.backup.clicks;
+  s.solved = s.backup.solved;
+  s.backup = null;
+  hideMessage();
+  buildTabs();
+  buildGrid();
+}
+
+function updateRestoreButton() {
+  $("btn-restore").hidden = !state[current].backup;
+}
+
+function reset() {
+  const s = state[current];
+  s.backup = null;
+  s.wl = { ...WL_DEFAULT };
+  s.values.fill(0);
+  s.clicks = 0;
+  s.solved = false;
+  hideMessage();
+  buildTabs();
+  buildGrid();
+}
+
+function selectExercise(i) {
+  current = i;
+  hideMessage();
+  buildTabs();
+  buildTable();
+  buildGrid();
+}
+
+$("btn-check").addEventListener("click", onCheckClick);
+$("btn-restore").addEventListener("click", restorePrevious);
+$("btn-reset").addEventListener("click", reset);
+$("btn-numbers").addEventListener("click", () => {
+  view = VIEWS[(VIEWS.indexOf(view) + 1) % VIEWS.length];
+  $("btn-numbers").textContent = VIEW_BUTTON[view];
+  buildGrid();
+  buildTable();
+  updateLegend();
+});
+gridEl.addEventListener("contextmenu", (e) => e.preventDefault());
+
+$("wl-b").addEventListener("input", onWindowInput);
+$("wl-c").addEventListener("input", onWindowInput);
+$("wl-reset").addEventListener("click", () => {
+  state[current].wl = { ...WL_DEFAULT };
+  updateProcPanel();
+});
+
+$("btn-answer").addEventListener("click", () => {
+  const a = $("answer");
+  a.hidden = !a.hidden;
+  $("btn-answer").textContent = a.hidden ? "Ver respuesta" : "Ocultar respuesta";
+});
+
+// Ventana de relación curricular
+const dlg = $("dlg-curr");
+$("btn-curr").addEventListener("click", () => dlg.showModal());
+$("btn-curr-close").addEventListener("click", () => dlg.close());
+dlg.addEventListener("click", (e) => { if (e.target === dlg) dlg.close(); });
+
+selectExercise(0);
+</script>
+</body>
+</html>
